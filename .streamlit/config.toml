@@ -1,0 +1,6 @@
+[server]
+# o plano gratuito tem pouca memória; arquivos grandes de base de conhecimento cabem em 50 MB
+maxUploadSize = 50
+
+[browser]
+gatherUsageStats = false

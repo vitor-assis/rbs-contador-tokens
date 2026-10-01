@@ -1,0 +1,13 @@
+# Versão publicada (Streamlit Community Cloud): só modelos Google, sem chaves de API.
+streamlit>=1.40
+pandas>=2.2
+python-dotenv>=1.0
+# Tokenizadores locais abertos
+tokenizers>=0.21                       # Gemini 3.x (tokenizer.json do Gemma 4, via Hugging Face)
+google-genai>=1.30                     # Gemini 2.5: LocalTokenizer oficial (google.genai.local_tokenizer)
+sentencepiece>=0.2.0                   # ...que precisa só destes dois. NÃO use o extra [local-tokenizer]:
+protobuf                               # ele puxa torch + torchvision + transformers (centenas de MB)
+# Leitura de arquivos
+pypdf>=5.0
+python-docx>=1.1
+pillow>=10.0

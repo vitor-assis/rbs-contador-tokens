@@ -1,0 +1,783 @@
+{
+  "_doc": {
+    "descricao": "Catálogo completo (todos os provedores). Para usar: defina MODELS_FILE=catalogo/todos_os_provedores.json. A versão publicada usa o models.json (só Google).",
+    "exact_method": "Método exato principal: 'tiktoken:<encoding>' | 'hf:<repo>' | 'api:anthropic' | 'api:gemini' | 'api:xai' | 'api:openai' | 'none'. Métodos 'api:*' só rodam ao clicar em 'Contar via API'.",
+    "local_method": "Opcional. Tokenizador local aberto que roda automaticamente: tiktoken:<encoding>, hf:<repo> ou genai:<modelo> (LocalTokenizer oficial do google-genai, usado no Gemini 2.5). Se local_method_is_exact=false, é um PROXY (mesma família), exibido como 'aproximado'.",
+    "precos": "USD por 1M tokens. price_cache_write_per_1m = custo de escrever no cache (igual ao input quando o provedor não cobra escrita). long_context: faixa de preço acima de 'threshold' tokens de entrada.",
+    "chars_per_token": "Usados só na heurística. Calibre com a seção 'Calibração' do app.",
+    "vision": "Tokens visuais por fórmula do provedor. image.method: claude_patches | openai_patches | fixed | qwen_resize | upper_bound | none. pdf.method: as_image (página rasterizada no DPI suposto e cobrada como imagem) | fixed (por página) | none (provedor não lê PDF nativamente). gemini_tiles = regra do Gemini 2.x (blocos de até 768 px, 258 cada). pdf.text_billed=false: o provedor não cobra o texto nativo do PDF (Gemini)."
+  },
+  "models": [
+    {
+      "id": "claude-opus-5-5",
+      "label": "Claude Opus 5.5",
+      "provider": "Anthropic",
+      "context_window": 1000000,
+      "chars_per_token_en": 3.1,
+      "chars_per_token_pt": 2.5,
+      "exact_method": "api:anthropic",
+      "local_method": null,
+      "local_method_is_exact": false,
+      "price_input_per_1m": 4.0,
+      "price_cache_read_per_1m": 0.2,
+      "price_cache_write_per_1m": 5.0,
+      "price_checked_at": "2026-09-30",
+      "notes": "Tokenizador novo (Claude 4.7+) gera ~30% mais tokens que o anterior; heurística ajustada (4.0/1.3, 3.3/1.3). Cache write = 5 min (1,25x). Sem tokenizador aberto oficial.",
+      "sources": [
+        "https://platform.claude.com/docs/en/about-claude/pricing"
+      ],
+      "vision": {
+        "image": {
+          "method": "claude_patches",
+          "max_edge": 2576,
+          "max_tokens": 4784
+        },
+        "pdf": {
+          "method": "as_image"
+        },
+        "notes": "Camada de alta resolução (Claude 4.7+). PDF: cada página vira imagem (resolução não publicada; DPI suposto) além do texto.",
+        "sources": [
+          "https://platform.claude.com/docs/en/build-with-claude/vision",
+          "https://platform.claude.com/docs/en/build-with-claude/vision-coordinates",
+          "https://platform.claude.com/docs/en/build-with-claude/pdf-support"
+        ]
+      }
+    },
+    {
+      "id": "claude-sonnet-5-5",
+      "label": "Claude Sonnet 5.5",
+      "provider": "Anthropic",
+      "context_window": 1000000,
+      "chars_per_token_en": 3.1,
+      "chars_per_token_pt": 2.5,
+      "exact_method": "api:anthropic",
+      "local_method": null,
+      "local_method_is_exact": false,
+      "price_input_per_1m": 2.0,
+      "price_cache_read_per_1m": 0.2,
+      "price_cache_write_per_1m": 2.5,
+      "price_checked_at": "2026-09-30",
+      "notes": "Tokenizador novo (Claude 4.7+). Cache write = 5 min (1,25x).",
+      "sources": [
+        "https://platform.claude.com/docs/en/about-claude/pricing"
+      ],
+      "vision": {
+        "image": {
+          "method": "claude_patches",
+          "max_edge": 2576,
+          "max_tokens": 4784
+        },
+        "pdf": {
+          "method": "as_image"
+        },
+        "notes": "Camada de alta resolução (Claude 4.7+). PDF: página como imagem + texto.",
+        "sources": [
+          "https://platform.claude.com/docs/en/build-with-claude/vision",
+          "https://platform.claude.com/docs/en/build-with-claude/vision-coordinates",
+          "https://platform.claude.com/docs/en/build-with-claude/pdf-support"
+        ]
+      }
+    },
+    {
+      "id": "claude-haiku-4-5",
+      "label": "Claude Haiku 4.5",
+      "provider": "Anthropic",
+      "context_window": 200000,
+      "chars_per_token_en": 4.0,
+      "chars_per_token_pt": 3.3,
+      "exact_method": "api:anthropic",
+      "local_method": null,
+      "local_method_is_exact": false,
+      "price_input_per_1m": 1.0,
+      "price_cache_read_per_1m": 0.1,
+      "price_cache_write_per_1m": 1.25,
+      "price_checked_at": "2026-09-30",
+      "notes": "Tokenizador anterior (pré-4.7). Cache write = 5 min (1,25x).",
+      "sources": [
+        "https://platform.claude.com/docs/en/about-claude/pricing"
+      ],
+      "vision": {
+        "image": {
+          "method": "claude_patches",
+          "max_edge": 1568,
+          "max_tokens": 1568
+        },
+        "pdf": {
+          "method": "as_image"
+        },
+        "notes": "Camada padrão (até 1568 tokens por imagem). PDF: página como imagem + texto.",
+        "sources": [
+          "https://platform.claude.com/docs/en/build-with-claude/vision",
+          "https://platform.claude.com/docs/en/build-with-claude/vision-coordinates",
+          "https://platform.claude.com/docs/en/build-with-claude/pdf-support"
+        ]
+      }
+    },
+    {
+      "id": "gpt-6-astra",
+      "label": "GPT-6 Astra",
+      "provider": "OpenAI",
+      "context_window": 1050000,
+      "chars_per_token_en": 4.0,
+      "chars_per_token_pt": 3.3,
+      "exact_method": "api:openai",
+      "local_method": "tiktoken:o200k_base",
+      "local_method_is_exact": false,
+      "price_input_per_1m": 10.0,
+      "price_cache_read_per_1m": 1.0,
+      "price_cache_write_per_1m": 10.0,
+      "long_context": {
+        "threshold": 272000,
+        "price_input_per_1m": 20.0,
+        "price_cache_read_per_1m": 2.0,
+        "price_cache_write_per_1m": 20.0
+      },
+      "price_checked_at": "2026-09-30",
+      "notes": "Máx. de entrada 922K. O tiktoken ainda não mapeia GPT-6; o200k_base (família GPT-5) é usado como proxy. Contagem exata via POST /v1/responses/input_tokens.",
+      "sources": [
+        "https://developers.openai.com/api/docs/models/gpt-6-astra",
+        "https://developers.openai.com/api/docs/guides/token-counting"
+      ],
+      "vision": {
+        "image": {
+          "method": "openai_patches",
+          "multiplier": 1.2,
+          "detail_default": "auto",
+          "detail_low": "low",
+          "high_max_patches": 2500,
+          "low_box": 512
+        },
+        "pdf": {
+          "method": "as_image"
+        },
+        "notes": "detail=auto (padrão) não reduz a imagem: fotos grandes custam muitos tokens. PDF: texto + imagem de cada página (resolução não publicada; DPI suposto).",
+        "sources": [
+          "https://developers.openai.com/api/docs/guides/images-vision",
+          "https://developers.openai.com/api/docs/guides/file-inputs"
+        ]
+      }
+    },
+    {
+      "id": "gpt-6.1-sol",
+      "label": "GPT-6.1 Sol",
+      "provider": "OpenAI",
+      "context_window": 1050000,
+      "chars_per_token_en": 4.0,
+      "chars_per_token_pt": 3.3,
+      "exact_method": "api:openai",
+      "local_method": "tiktoken:o200k_base",
+      "local_method_is_exact": false,
+      "price_input_per_1m": 2.0,
+      "price_cache_read_per_1m": 0.1,
+      "price_cache_write_per_1m": 2.5,
+      "long_context": {
+        "threshold": 272000,
+        "price_input_per_1m": 4.0,
+        "price_cache_read_per_1m": 0.2,
+        "price_cache_write_per_1m": 5.0
+      },
+      "price_checked_at": "2026-09-30",
+      "notes": "Máx. de entrada 922K. Cache write de US$ 2,50 publicado; o valor de cache write em contexto longo (US$ 5) é suposto (2x). tiktoken o200k_base como proxy.",
+      "sources": [
+        "https://developers.openai.com/api/docs/models/gpt-6.1-sol",
+        "https://developers.openai.com/api/docs/pricing"
+      ],
+      "vision": {
+        "image": {
+          "method": "openai_patches",
+          "multiplier": 1.2,
+          "detail_default": "auto",
+          "detail_low": "low",
+          "high_max_patches": 2500,
+          "low_box": 512
+        },
+        "pdf": {
+          "method": "as_image"
+        },
+        "notes": "Multiplicador 1,2 suposto: o GPT-6.1 Sol não aparece na tabela de multiplicadores da doc.",
+        "sources": [
+          "https://developers.openai.com/api/docs/guides/images-vision",
+          "https://developers.openai.com/api/docs/guides/file-inputs"
+        ]
+      }
+    },
+    {
+      "id": "gpt-5.5",
+      "label": "GPT-5.5",
+      "provider": "OpenAI",
+      "context_window": 1050000,
+      "chars_per_token_en": 4.0,
+      "chars_per_token_pt": 3.3,
+      "exact_method": "tiktoken:o200k_base",
+      "local_method": null,
+      "local_method_is_exact": false,
+      "price_input_per_1m": 5.0,
+      "price_cache_read_per_1m": 0.5,
+      "price_cache_write_per_1m": 5.0,
+      "long_context": {
+        "threshold": 272000,
+        "price_input_per_1m": 10.0,
+        "price_cache_read_per_1m": 1.0,
+        "price_cache_write_per_1m": 10.0
+      },
+      "price_checked_at": "2026-09-30",
+      "notes": "tiktoken mapeia o prefixo 'gpt-5' para o200k_base. Não conta overhead de tools/mensagens (use o campo de overhead).",
+      "sources": [
+        "https://developers.openai.com/api/docs/models/gpt-5.5",
+        "https://github.com/openai/tiktoken/blob/main/tiktoken/model.py"
+      ],
+      "vision": {
+        "image": {
+          "method": "openai_patches",
+          "multiplier": 1.2,
+          "detail_default": "auto",
+          "detail_low": "low",
+          "high_max_patches": 2500,
+          "low_box": 512
+        },
+        "pdf": {
+          "method": "as_image"
+        },
+        "notes": "PDF: texto + imagem de cada página (DPI suposto).",
+        "sources": [
+          "https://developers.openai.com/api/docs/guides/images-vision",
+          "https://developers.openai.com/api/docs/guides/file-inputs"
+        ]
+      }
+    },
+    {
+      "id": "gemini-3.8-flash",
+      "label": "Gemini 3.8 Flash",
+      "provider": "Google",
+      "context_window": 1048576,
+      "chars_per_token_en": 4.0,
+      "chars_per_token_pt": 3.3,
+      "exact_method": "api:gemini",
+      "local_method": "hf:google/gemma-4-E4B-it",
+      "local_method_is_exact": false,
+      "price_input_per_1m": 0.75,
+      "price_cache_read_per_1m": 0.075,
+      "price_cache_write_per_1m": 0.75,
+      "price_checked_at": "2026-09-30",
+      "notes": "Preço promocional até 31/12/2026 (depois: US$ 1,50 input / US$ 0,15 cache). Cache implícito sem taxa de escrita; cache explícito cobra armazenamento (US$ 0,50/1M tokens/h), não incluído. Gemma 4 como proxy local (o google-genai ainda não mapeia 3.8).",
+      "sources": [
+        "https://ai.google.dev/gemini-api/docs/pricing",
+        "https://ai.google.dev/gemini-api/docs/models/gemini-3.8-flash"
+      ],
+      "vision": {
+        "image": {
+          "method": "fixed",
+          "tokens": 1120,
+          "tokens_low": 280
+        },
+        "pdf": {
+          "method": "fixed",
+          "tokens": 560,
+          "tokens_low": 280,
+          "text_billed": false
+        },
+        "notes": "media_resolution do Gemini 3: imagem 1120 (padrão) / 280 (low); PDF 560 por página (padrão) / 280 (low). O texto nativo extraído do PDF não é cobrado.",
+        "sources": [
+          "https://ai.google.dev/gemini-api/docs/media-resolution",
+          "https://ai.google.dev/gemini-api/docs/document-processing"
+        ]
+      }
+    },
+    {
+      "id": "gemini-3.5-flash",
+      "label": "Gemini 3.5 Flash",
+      "provider": "Google",
+      "context_window": 1048576,
+      "chars_per_token_en": 4.0,
+      "chars_per_token_pt": 3.3,
+      "exact_method": "api:gemini",
+      "local_method": "hf:google/gemma-4-E4B-it",
+      "local_method_is_exact": true,
+      "price_input_per_1m": 1.5,
+      "price_cache_read_per_1m": 0.15,
+      "price_cache_write_per_1m": 1.5,
+      "price_checked_at": "2026-09-30",
+      "notes": "Texto: tokenizador do Gemma 4 (o mesmo que o LocalTokenizer oficial do google-genai usa para este modelo; contagens idênticas, carregado uma vez só). Armazenamento de cache explícito (US$ 1,00/1M tokens/h) não incluído.",
+      "sources": [
+        "https://ai.google.dev/gemini-api/docs/pricing",
+        "https://github.com/googleapis/python-genai/blob/main/google/genai/_local_tokenizer_loader.py"
+      ],
+      "vision": {
+        "image": {
+          "method": "fixed",
+          "tokens": 1120,
+          "tokens_low": 280
+        },
+        "pdf": {
+          "method": "fixed",
+          "tokens": 560,
+          "tokens_low": 280,
+          "text_billed": false
+        },
+        "notes": "media_resolution do Gemini 3: imagem 1120 (padrão) / 280 (low); PDF 560 por página (padrão) / 280 (low). O texto nativo extraído do PDF não é cobrado.",
+        "sources": [
+          "https://ai.google.dev/gemini-api/docs/media-resolution",
+          "https://ai.google.dev/gemini-api/docs/document-processing"
+        ]
+      }
+    },
+    {
+      "id": "gemini-3.5-flash-lite",
+      "label": "Gemini 3.5 Flash-Lite",
+      "provider": "Google",
+      "context_window": 1048576,
+      "chars_per_token_en": 4.0,
+      "chars_per_token_pt": 3.3,
+      "exact_method": "api:gemini",
+      "local_method": "hf:google/gemma-4-E4B-it",
+      "local_method_is_exact": false,
+      "price_input_per_1m": 0.3,
+      "price_cache_read_per_1m": 0.03,
+      "price_cache_write_per_1m": 0.3,
+      "price_checked_at": "2026-09-30",
+      "notes": "O google-genai ainda não mapeia este modelo: Gemma 4 usado como proxy. Armazenamento de cache explícito (US$ 1,00/1M tokens/h) não incluído.",
+      "sources": [
+        "https://ai.google.dev/gemini-api/docs/pricing",
+        "https://github.com/googleapis/python-genai/blob/main/google/genai/_local_tokenizer_loader.py"
+      ],
+      "vision": {
+        "image": {
+          "method": "fixed",
+          "tokens": 1120,
+          "tokens_low": 280
+        },
+        "pdf": {
+          "method": "fixed",
+          "tokens": 560,
+          "tokens_low": 280,
+          "text_billed": false
+        },
+        "notes": "media_resolution do Gemini 3: imagem 1120 (padrão) / 280 (low); PDF 560 por página (padrão) / 280 (low). O texto nativo extraído do PDF não é cobrado.",
+        "sources": [
+          "https://ai.google.dev/gemini-api/docs/media-resolution",
+          "https://ai.google.dev/gemini-api/docs/document-processing"
+        ]
+      }
+    },
+    {
+      "id": "gemini-3.1-pro-preview",
+      "label": "Gemini 3.1 Pro (preview)",
+      "provider": "Google",
+      "context_window": 1048576,
+      "chars_per_token_en": 4.0,
+      "chars_per_token_pt": 3.3,
+      "exact_method": "api:gemini",
+      "local_method": "hf:google/gemma-4-E4B-it",
+      "local_method_is_exact": true,
+      "price_input_per_1m": 2.0,
+      "price_cache_read_per_1m": 0.2,
+      "price_cache_write_per_1m": 2.0,
+      "long_context": {
+        "threshold": 200000,
+        "price_input_per_1m": 4.0,
+        "price_cache_read_per_1m": 0.4,
+        "price_cache_write_per_1m": 4.0
+      },
+      "price_checked_at": "2026-09-30",
+      "notes": "Texto: tokenizador do Gemma 4 (o mesmo que o LocalTokenizer oficial do google-genai usa para este modelo; contagens idênticas, carregado uma vez só). Armazenamento de cache explícito (US$ 4,50/1M tokens/h) não incluído.",
+      "sources": [
+        "https://ai.google.dev/gemini-api/docs/pricing",
+        "https://github.com/googleapis/python-genai/blob/main/google/genai/_local_tokenizer_loader.py"
+      ],
+      "vision": {
+        "image": {
+          "method": "fixed",
+          "tokens": 1120,
+          "tokens_low": 280
+        },
+        "pdf": {
+          "method": "fixed",
+          "tokens": 560,
+          "tokens_low": 280,
+          "text_billed": false
+        },
+        "notes": "media_resolution do Gemini 3: imagem 1120 (padrão) / 280 (low); PDF 560 por página (padrão) / 280 (low). O texto nativo extraído do PDF não é cobrado.",
+        "sources": [
+          "https://ai.google.dev/gemini-api/docs/media-resolution",
+          "https://ai.google.dev/gemini-api/docs/document-processing"
+        ]
+      }
+    },
+    {
+      "id": "gemini-3.1-flash-lite",
+      "label": "Gemini 3.1 Flash-Lite",
+      "provider": "Google",
+      "context_window": 1048576,
+      "chars_per_token_en": 4.0,
+      "chars_per_token_pt": 3.3,
+      "exact_method": "api:gemini",
+      "local_method": "hf:google/gemma-4-E4B-it",
+      "local_method_is_exact": true,
+      "price_input_per_1m": 0.25,
+      "price_cache_read_per_1m": 0.025,
+      "price_cache_write_per_1m": 0.25,
+      "price_checked_at": "2026-09-30",
+      "notes": "Texto: tokenizador do Gemma 4 (o mesmo que o LocalTokenizer oficial do google-genai usa para este modelo; contagens idênticas, carregado uma vez só). Armazenamento de cache explícito (US$ 1,00/1M tokens/h) não incluído.",
+      "sources": [
+        "https://ai.google.dev/gemini-api/docs/pricing",
+        "https://ai.google.dev/gemini-api/docs/models/gemini-3.1-flash-lite"
+      ],
+      "vision": {
+        "image": {
+          "method": "fixed",
+          "tokens": 1120,
+          "tokens_low": 280
+        },
+        "pdf": {
+          "method": "fixed",
+          "tokens": 560,
+          "tokens_low": 280,
+          "text_billed": false
+        },
+        "notes": "media_resolution do Gemini 3: imagem 1120 (padrão) / 280 (low); PDF 560 por página (padrão) / 280 (low). O texto nativo extraído do PDF não é cobrado.",
+        "sources": [
+          "https://ai.google.dev/gemini-api/docs/media-resolution",
+          "https://ai.google.dev/gemini-api/docs/document-processing"
+        ]
+      }
+    },
+    {
+      "id": "gemini-2.5-pro",
+      "label": "Gemini 2.5 Pro",
+      "provider": "Google",
+      "context_window": 1048576,
+      "chars_per_token_en": 4.0,
+      "chars_per_token_pt": 3.3,
+      "exact_method": "api:gemini",
+      "local_method": "genai:gemini-2.5-pro",
+      "local_method_is_exact": true,
+      "price_input_per_1m": 1.25,
+      "price_cache_read_per_1m": 0.125,
+      "price_cache_write_per_1m": 1.25,
+      "long_context": {
+        "threshold": 200000,
+        "price_input_per_1m": 2.5,
+        "price_cache_read_per_1m": 0.25,
+        "price_cache_write_per_1m": 2.5
+      },
+      "price_checked_at": "2026-09-30",
+      "notes": "Acesso limitado a quem já usava a família 2.5. Texto: LocalTokenizer oficial do google-genai (Gemma 3, SentencePiece). Armazenamento de cache explícito (US$ 4,50/1M tokens/h) não incluído.",
+      "sources": [
+        "https://ai.google.dev/gemini-api/docs/pricing",
+        "https://github.com/googleapis/python-genai/blob/main/google/genai/_local_tokenizer_loader.py"
+      ],
+      "vision": {
+        "image": {
+          "method": "gemini_tiles",
+          "tokens_per_tile": 258
+        },
+        "pdf": {
+          "method": "fixed",
+          "tokens": 258,
+          "text_billed": false
+        },
+        "notes": "Regra do Gemini 2.x: imagem com os dois lados ≤ 384 px = 258 tokens; maior é dividida em blocos de floor(min(w,h)/1,5) px (até 768), 258 cada. PDF: 258 tokens por página; texto nativo não cobrado (suposto também para o 2.5; a doc só afirma para o Gemini 3). Sem opção 'low' por item.",
+        "sources": [
+          "https://ai.google.dev/gemini-api/docs/image-understanding",
+          "https://ai.google.dev/gemini-api/docs/document-processing"
+        ]
+      }
+    },
+    {
+      "id": "gemini-2.5-flash",
+      "label": "Gemini 2.5 Flash",
+      "provider": "Google",
+      "context_window": 1048576,
+      "chars_per_token_en": 4.0,
+      "chars_per_token_pt": 3.3,
+      "exact_method": "api:gemini",
+      "local_method": "genai:gemini-2.5-flash",
+      "local_method_is_exact": true,
+      "price_input_per_1m": 0.3,
+      "price_cache_read_per_1m": 0.03,
+      "price_cache_write_per_1m": 0.3,
+      "price_checked_at": "2026-09-30",
+      "notes": "Acesso limitado a quem já usava a família 2.5. Texto: LocalTokenizer oficial do google-genai (Gemma 3, SentencePiece). Armazenamento de cache explícito (US$ 1,00/1M tokens/h) não incluído.",
+      "sources": [
+        "https://ai.google.dev/gemini-api/docs/pricing",
+        "https://github.com/googleapis/python-genai/blob/main/google/genai/_local_tokenizer_loader.py"
+      ],
+      "vision": {
+        "image": {
+          "method": "gemini_tiles",
+          "tokens_per_tile": 258
+        },
+        "pdf": {
+          "method": "fixed",
+          "tokens": 258,
+          "text_billed": false
+        },
+        "notes": "Regra do Gemini 2.x: imagem com os dois lados ≤ 384 px = 258 tokens; maior é dividida em blocos de floor(min(w,h)/1,5) px (até 768), 258 cada. PDF: 258 tokens por página; texto nativo não cobrado (suposto também para o 2.5; a doc só afirma para o Gemini 3). Sem opção 'low' por item.",
+        "sources": [
+          "https://ai.google.dev/gemini-api/docs/image-understanding",
+          "https://ai.google.dev/gemini-api/docs/document-processing"
+        ]
+      }
+    },
+    {
+      "id": "grok-4.7",
+      "label": "Grok 4.7",
+      "provider": "xAI",
+      "context_window": 500000,
+      "chars_per_token_en": 4.0,
+      "chars_per_token_pt": 3.3,
+      "exact_method": "api:xai",
+      "local_method": null,
+      "local_method_is_exact": false,
+      "price_input_per_1m": 2.0,
+      "price_cache_read_per_1m": 0.5,
+      "price_cache_write_per_1m": 2.0,
+      "long_context": {
+        "threshold": 200000,
+        "price_input_per_1m": 4.0,
+        "price_cache_read_per_1m": 1.0,
+        "price_cache_write_per_1m": 4.0
+      },
+      "price_checked_at": "2026-09-30",
+      "notes": "Contagem exata via POST /v1/tokenize-text. O tokenizador aberto (xai-org/grok-2) é de uma geração antiga e não é usado.",
+      "sources": [
+        "https://docs.x.ai/docs/models",
+        "https://docs.x.ai/developers/rest-api-reference/inference/other"
+      ],
+      "vision": {
+        "image": {
+          "method": "none",
+          "reason": "a doc da xAI não publica tokens por imagem"
+        },
+        "pdf": {
+          "method": "none",
+          "reason": "a API aceita só imagens JPG/PNG"
+        },
+        "sources": [
+          "https://docs.x.ai/docs/guides/image-understanding"
+        ]
+      }
+    },
+    {
+      "id": "grok-4.3",
+      "label": "Grok 4.3",
+      "provider": "xAI",
+      "context_window": 1000000,
+      "chars_per_token_en": 4.0,
+      "chars_per_token_pt": 3.3,
+      "exact_method": "api:xai",
+      "local_method": null,
+      "local_method_is_exact": false,
+      "price_input_per_1m": 1.25,
+      "price_cache_read_per_1m": 0.2,
+      "price_cache_write_per_1m": 1.25,
+      "long_context": {
+        "threshold": 200000,
+        "price_input_per_1m": 2.5,
+        "price_cache_read_per_1m": 0.4,
+        "price_cache_write_per_1m": 2.5
+      },
+      "price_checked_at": "2026-09-30",
+      "notes": "Contagem exata via POST /v1/tokenize-text.",
+      "sources": [
+        "https://docs.x.ai/docs/models"
+      ],
+      "vision": {
+        "image": {
+          "method": "none",
+          "reason": "a doc da xAI não publica tokens por imagem"
+        },
+        "pdf": {
+          "method": "none",
+          "reason": "a API aceita só imagens JPG/PNG"
+        },
+        "sources": [
+          "https://docs.x.ai/docs/guides/image-understanding"
+        ]
+      }
+    },
+    {
+      "id": "deepseek-flash",
+      "label": "DeepSeek Flash (V4.1-Flash)",
+      "provider": "DeepSeek",
+      "context_window": 1000000,
+      "chars_per_token_en": 4.0,
+      "chars_per_token_pt": 3.3,
+      "exact_method": "hf:deepseek-ai/DeepSeek-V4.1-Flash",
+      "local_method": null,
+      "local_method_is_exact": false,
+      "price_input_per_1m": 0.3,
+      "price_cache_read_per_1m": 0.006,
+      "price_cache_write_per_1m": 0.3,
+      "price_checked_at": "2026-09-30",
+      "notes": "Preços de horário de pico (seg–sex 01–04h e 06–10h UTC); fora do pico custa metade. Cache automático, sem taxa de escrita.",
+      "sources": [
+        "https://api-docs.deepseek.com/quick_start/pricing",
+        "https://huggingface.co/deepseek-ai/DeepSeek-V4.1-Flash"
+      ],
+      "vision": {
+        "image": {
+          "method": "upper_bound",
+          "tokens": 1024
+        },
+        "pdf": {
+          "method": "none",
+          "reason": "a API não aceita PDF"
+        },
+        "notes": "A doc só publica o teto de 1024 tokens por imagem (redimensiona para ~544–1300 px).",
+        "sources": [
+          "https://api-docs.deepseek.com/guides/vision"
+        ]
+      }
+    },
+    {
+      "id": "deepseek-v4-pro",
+      "label": "DeepSeek V4 Pro",
+      "provider": "DeepSeek",
+      "context_window": 1000000,
+      "chars_per_token_en": 4.0,
+      "chars_per_token_pt": 3.3,
+      "exact_method": "hf:deepseek-ai/DeepSeek-V4-Pro-0813",
+      "local_method": null,
+      "local_method_is_exact": false,
+      "price_input_per_1m": 1.32,
+      "price_cache_read_per_1m": 0.044,
+      "price_cache_write_per_1m": 1.32,
+      "price_checked_at": "2026-09-30",
+      "notes": "Preços de horário de pico; fora do pico custa metade. Cache automático, sem taxa de escrita.",
+      "sources": [
+        "https://api-docs.deepseek.com/quick_start/pricing",
+        "https://huggingface.co/deepseek-ai/DeepSeek-V4-Pro-0813"
+      ],
+      "vision": {
+        "image": {
+          "method": "none",
+          "reason": "modelo não aceita imagens (só o deepseek-flash)"
+        },
+        "pdf": {
+          "method": "none",
+          "reason": "a API não aceita PDF"
+        },
+        "sources": [
+          "https://api-docs.deepseek.com/guides/vision"
+        ]
+      }
+    },
+    {
+      "id": "qwen3.8-max",
+      "label": "Qwen3.8 Max",
+      "provider": "Alibaba (Qwen)",
+      "context_window": 1000000,
+      "chars_per_token_en": 4.0,
+      "chars_per_token_pt": 3.3,
+      "exact_method": "none",
+      "local_method": "hf:Qwen/Qwen3.8-27B",
+      "local_method_is_exact": false,
+      "price_input_per_1m": 2.0,
+      "price_cache_read_per_1m": 0.2,
+      "price_cache_write_per_1m": 2.5,
+      "price_checked_at": "2026-09-30",
+      "notes": "Preços internacionais (Singapura). Cache explícito: escrita 125%, leitura 10%. A doc não confirma que o modelo comercial usa o mesmo tokenizador dos pesos abertos: Qwen3.8-27B é proxy.",
+      "sources": [
+        "https://www.alibabacloud.com/help/en/model-studio/model-pricing",
+        "https://www.alibabacloud.com/help/en/model-studio/context-cache"
+      ],
+      "vision": {
+        "image": {
+          "method": "qwen_resize",
+          "factor": 32,
+          "min_tokens": 4,
+          "max_tokens": 1280,
+          "extra_tokens": 2
+        },
+        "pdf": {
+          "method": "none",
+          "reason": "a API não aceita PDF como entrada visual"
+        },
+        "notes": "1 token por bloco de 32x32 px + 2, entre 4 e 1280 tokens (vl_high_resolution_images eleva o teto). Documentado para as séries 3.5–3.7; aplicado ao 3.8 por suposição.",
+        "sources": [
+          "https://www.alibabacloud.com/help/en/model-studio/vision"
+        ]
+      }
+    },
+    {
+      "id": "qwen3.7-plus",
+      "label": "Qwen3.7 Plus",
+      "provider": "Alibaba (Qwen)",
+      "context_window": 1000000,
+      "chars_per_token_en": 4.0,
+      "chars_per_token_pt": 3.3,
+      "exact_method": "none",
+      "local_method": "hf:Qwen/Qwen3.8-27B",
+      "local_method_is_exact": false,
+      "price_input_per_1m": 0.4,
+      "price_cache_read_per_1m": 0.04,
+      "price_cache_write_per_1m": 0.5,
+      "long_context": {
+        "threshold": 256000,
+        "price_input_per_1m": 1.2,
+        "price_cache_read_per_1m": 0.12,
+        "price_cache_write_per_1m": 1.5
+      },
+      "price_checked_at": "2026-09-30",
+      "notes": "Preços internacionais (Singapura). Multiplicadores de cache (10% leitura / 125% escrita) supostos a partir da doc de context cache. Tokenizador Qwen3.8 como proxy.",
+      "sources": [
+        "https://www.alibabacloud.com/help/en/model-studio/model-pricing",
+        "https://www.alibabacloud.com/help/en/model-studio/context-cache"
+      ],
+      "vision": {
+        "image": {
+          "method": "qwen_resize",
+          "factor": 32,
+          "min_tokens": 4,
+          "max_tokens": 1280,
+          "extra_tokens": 2
+        },
+        "pdf": {
+          "method": "none",
+          "reason": "a API não aceita PDF como entrada visual"
+        },
+        "notes": "1 token por bloco de 32x32 px + 2, entre 4 e 1280 tokens (vl_high_resolution_images eleva o teto). Documentado para as séries 3.5–3.7; aplicado ao 3.8 por suposição.",
+        "sources": [
+          "https://www.alibabacloud.com/help/en/model-studio/vision"
+        ]
+      }
+    },
+    {
+      "id": "qwen3.8-flash",
+      "label": "Qwen3.8 Flash",
+      "provider": "Alibaba (Qwen)",
+      "context_window": 1000000,
+      "chars_per_token_en": 4.0,
+      "chars_per_token_pt": 3.3,
+      "exact_method": "none",
+      "local_method": "hf:Qwen/Qwen3.8-27B",
+      "local_method_is_exact": false,
+      "price_input_per_1m": 0.15,
+      "price_cache_read_per_1m": 0.015,
+      "price_cache_write_per_1m": 0.1875,
+      "price_checked_at": "2026-09-30",
+      "notes": "Preços internacionais (Singapura). Cache explícito: escrita 125%, leitura 10%. Tokenizador Qwen3.8 como proxy.",
+      "sources": [
+        "https://www.alibabacloud.com/help/en/model-studio/model-pricing"
+      ],
+      "vision": {
+        "image": {
+          "method": "qwen_resize",
+          "factor": 32,
+          "min_tokens": 4,
+          "max_tokens": 1280,
+          "extra_tokens": 2
+        },
+        "pdf": {
+          "method": "none",
+          "reason": "a API não aceita PDF como entrada visual"
+        },
+        "notes": "1 token por bloco de 32x32 px + 2, entre 4 e 1280 tokens (vl_high_resolution_images eleva o teto). Documentado para as séries 3.5–3.7; aplicado ao 3.8 por suposição.",
+        "sources": [
+          "https://www.alibabacloud.com/help/en/model-studio/vision"
+        ]
+      }
+    }
+  ]
+}

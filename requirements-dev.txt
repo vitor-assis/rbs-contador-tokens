@@ -1,0 +1,7 @@
+# Uso local completo: testes + catálogo com todos os provedores (MODELS_FILE=catalogo/todos_os_provedores.json)
+-r requirements.txt
+pytest>=8.0
+tiktoken>=0.9        # OpenAI
+transformers>=4.50   # fallback AutoTokenizer (repositórios HF sem tokenizer.json)
+anthropic>=0.60      # contagem via API Anthropic (com chave no .env)
+httpx>=0.27          # contagem via API xAI e OpenAI (com chave no .env)
