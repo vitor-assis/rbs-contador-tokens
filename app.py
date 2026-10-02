@@ -593,6 +593,11 @@ def conversation_dict(c: ConversationEstimate, tpw: float, tpw_label: str) -> di
         "custo_saida_por_conversa_usd": c.cost_output,
         "custo_por_conversa_usd": c.cost,
         "custo_mensal_usd": c.monthly_cost,
+        "conversas_por_mes": c.params.conversations_per_month,
+        "entrada_por_mes": c.monthly_input_tokens,
+        "entrada_do_cache_por_mes": c.monthly_cached_tokens,
+        "saida_por_mes": c.monthly_output_tokens,
+        "total_tokens_por_mes": c.monthly_total_tokens,
         "pico_janela_pct": c.peak_window_pct,
         "turnos": [
             {"turno": t.turn, "entrada": t.input_tokens, "do_cache": round(t.cached_tokens),
@@ -811,17 +816,24 @@ if not compare_mode:
         f"raciocínio = **{fmt_int(p.thinking_tokens)}** por resposta "
         f"({str(round(tpw, 2)).replace('.', ',')} tokens/palavra medidos com {tpw_label})."
     )
+    st.markdown("**Por conversa**")
     m1, m2, m3, m4 = st.columns(4)
-    m1.metric("Entrada por conversa", fmt_int(conv.input_total),
+    m1.metric("Tokens de entrada", fmt_int(conv.input_total),
               help=f"Soma da entrada dos {p.turns} turnos. Do cache: {fmt_int(round(conv.cached_total))}. "
                    f"O contexto inicial reprocessado é {fmt_pct(conv.context_share_of_input * 100)} da entrada.")
-    m2.metric("Saída por conversa", fmt_int(conv.output_total),
+    m2.metric("Tokens de saída", fmt_int(conv.output_total),
               help=f"Raciocínio {fmt_int(conv.thinking_total)} + respostas {fmt_int(conv.response_total)}.")
-    m3.metric("Custo por conversa", format_usd(conv.cost),
+    m3.metric("Total de tokens", fmt_int(conv.input_total + conv.output_total))
+    m4.metric("Custo", format_usd(conv.cost),
               help=f"Entrada {format_usd(conv.cost_input)} + saída {format_usd(conv.cost_output)}.")
-    m4.metric(f"Mensal ({fmt_int(int(conv_month))} conversas)", format_usd(conv.monthly_cost),
-              help=f"Entrada: {fmt_int(conv.monthly_input_tokens)} tokens · "
-                   f"saída: {fmt_int(conv.monthly_output_tokens)} tokens por mês.")
+    st.markdown(f"**Por mês** · {fmt_int(int(conv_month))} conversas")
+    n1, n2, n3, n4 = st.columns(4)
+    n1.metric("Tokens de entrada", fmt_int(conv.monthly_input_tokens),
+              help=f"Do cache: {fmt_int(conv.monthly_cached_tokens)} tokens.")
+    n2.metric("Tokens de saída", fmt_int(conv.monthly_output_tokens))
+    n3.metric("Total de tokens", fmt_int(conv.monthly_total_tokens),
+              help="Entrada + saída de todas as conversas do mês: o volume que aparece no relatório de consumo.")
+    n4.metric("Custo", format_usd(conv.monthly_cost))
     if conv.output_price_missing:
         st.warning("Este modelo não tem preço de saída no catálogo: o custo da saída aparece como zero.")
     if conv.peak_window_pct >= CRIT_PCT:
@@ -974,6 +986,7 @@ else:
                 "Do cache/conversa": round(c.cached_total),
                 "Saída/conversa": c.output_total,
                 "Custo/conversa (US$)": c.cost,
+                "Tokens/mês": c.monthly_total_tokens,
                 "Mensal (US$)": c.monthly_cost,
             }
         )
