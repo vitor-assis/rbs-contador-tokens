@@ -71,6 +71,67 @@ def count_words(text: str) -> int:
     return len(text.split())
 
 
+# Amostras de troca de mensagens num atendimento, usadas para medir tokens por palavra
+# com o tokenizador de cada modelo (converte "palavras por mensagem" em tokens).
+CHAT_SAMPLES = {
+    "pt": (
+        "Oi, boa tarde! Meu pedido ainda não chegou e o prazo venceu ontem. "
+        "Olá! Sinto muito pelo atraso. Pode me informar o número do pedido, por favor? "
+        "Claro, é o 48213. Comprei uma cafeteira elétrica na promoção da semana passada. "
+        "Obrigado. Verifiquei aqui: o pedido saiu do centro de distribuição na segunda-feira e está em "
+        "trânsito com a transportadora. A nova previsão de entrega é quinta-feira, até as 18h. "
+        "Você vai receber o código de rastreio por e-mail ainda hoje. "
+        "Entendi. E se não chegar até quinta, consigo cancelar e receber o reembolso? "
+        "Consegue, sim. Se a entrega não acontecer até a nova data, você pode solicitar o cancelamento "
+        "pelo aplicativo, e o estorno no cartão de crédito acontece em até duas faturas. "
+        "Posso ajudar com mais alguma coisa? Não, era só isso. Muito obrigado pela ajuda!"
+    ),
+    "en": (
+        "Hi, good afternoon! My order still hasn't arrived and the delivery date was yesterday. "
+        "Hello! I'm sorry about the delay. Could you share your order number, please? "
+        "Sure, it's 48213. I bought an electric coffee maker during last week's sale. "
+        "Thanks. I checked: the order left the distribution center on Monday and is in transit with the "
+        "carrier. The new delivery estimate is Thursday, by 6 p.m. You'll get the tracking code by email "
+        "today. Got it. And if it doesn't arrive by Thursday, can I cancel and get a refund? "
+        "Yes, you can. If the delivery doesn't happen by the new date, you can request the cancellation in "
+        "the app, and the credit card refund happens within two billing cycles. "
+        "Can I help you with anything else? No, that's all. Thank you so much for your help!"
+    ),
+}
+
+
+def tokens_per_word(model: dict, lang: str, pt_share: float = 0.5, use_local: bool = True) -> tuple[float, str]:
+    """Tokens por palavra numa troca de mensagens típica, medidos com o tokenizador do modelo.
+
+    Usa o tokenizador local (exato ou proxy) quando há; senão, a heurística. No modo misto,
+    média ponderada pela parcela em português.
+    """
+    method, is_exact = local_method_for(model)
+    label = "heurística"
+
+    def ratio(sample_lang: str) -> float:
+        nonlocal label
+        text = CHAT_SAMPLES[sample_lang]
+        words = count_words(text)
+        if method and use_local:
+            try:
+                n = count_local(method, text)
+                label = f"{'exato' if is_exact else 'aproximado (proxy)'}: {method_label(method)}"
+                return n / words
+            except LocalTokenizerError:
+                pass
+        n = heuristic_tokens(text, float(model["chars_per_token_en"]), float(model["chars_per_token_pt"]),
+                             sample_lang)
+        return n / words
+
+    if lang == "en":
+        return ratio("en"), label
+    if lang == "pt":
+        return ratio("pt"), label
+    w = min(max(pt_share, 0.0), 1.0)
+    return w * ratio("pt") + (1 - w) * ratio("en"), label
+
+
 # --------------------------------------------------------------------------- #
 # Métodos
 # --------------------------------------------------------------------------- #

@@ -45,6 +45,7 @@ from core.counters import (
     heuristic_tokens,
     local_method_for,
     method_label,
+    tokens_per_word,
 )
 from core.extractors import EXTRACTOR_VERSION, IMAGE_EXTENSIONS, SUPPORTED_EXTENSIONS, extract
 from core.vision import (
@@ -56,7 +57,8 @@ from core.vision import (
     pdf_text_billed,
     visual_item_tokens,
 )
-from core.pricing import estimate_cost, format_usd, load_models
+from core.conversation import ConversationEstimate, ConversationParams, simulate_conversation
+from core.pricing import format_usd, load_models
 
 load_dotenv()
 
@@ -224,19 +226,42 @@ with st.sidebar:
         help="Wrappers de mensagem e prompt de sistema que o provedor injeta ao usar tools. "
              "Não é somado às contagens via API Anthropic/OpenAI, que já incluem isso.",
     )
-    cache_on = st.toggle("Prompt caching ligado", value=True)
+
+    st.header("Conversa")
+    conv_month = st.number_input("Conversas por mês", min_value=0, value=1000, step=100)
+    turns = st.number_input(
+        "Mensagens do usuário por conversa", min_value=1, value=5, step=1,
+        help="Turnos da conversa. 1 turno = mensagem do usuário → raciocínio do agente → resposta do agente. "
+             "Uma conversa com 10 mensagens no total (5 do usuário + 5 do agente) tem 5 turnos.",
+    )
+    user_words = st.slider(
+        "Palavras por mensagem do usuário", 1, 100, (5, 15),
+        help="Faixa de tamanho (só texto). A simulação usa a média.",
+    )
+    response_words = st.number_input(
+        "Palavras por resposta do agente", min_value=1, value=80, step=10,
+        help="Tamanho médio da resposta visível ao usuário.",
+    )
+    thinking_tokens = st.number_input(
+        "Raciocínio por resposta (tokens)", min_value=0, value=500, step=100,
+        help="Tokens de 'thinking' gerados antes de cada resposta. São cobrados como saída. O Gemini 3.x e o "
+             "2.5 Pro/Flash raciocinam por padrão; o volume varia muito com a tarefa e o nível de raciocínio. "
+             "É a maior incerteza da simulação: meça o campo de tokens de raciocínio (thoughts) no uso real.",
+    )
+    thoughts_in_history = st.toggle(
+        "Raciocínio anterior volta como entrada (pior caso)", value=False,
+        help="Desligado: só mensagens e respostas acumulam no histórico; do raciocínio anterior volta apenas "
+             "uma assinatura criptografada, cujo custo a doc não detalha. Ligue para o pior caso.",
+    )
+    cache_on = st.toggle("Cache implícito (prompt caching)", value=True,
+                         help="O Gemini 2.5+ usa cache implícito por padrão: a parte repetida da requisição "
+                              "anterior é cobrada a ~10% do preço de entrada.")
     hit_rate = 0.95
     if cache_on:
         hit_rate = st.slider(
             "Taxa de acerto do cache", 0, 100, 95, 5, format="%d%%",
-            help="Fração das requisições (interações) que encontram o cache válido; o resto paga escrita.",
+            help="Fração do prefixo repetido que é efetivamente lida do cache (o Google não garante acerto).",
         ) / 100
-    conv_month = st.number_input("Conversas por mês", min_value=0, value=1000, step=100)
-    turns = st.number_input(
-        "Interações por conversa", min_value=1, value=5, step=1,
-        help="Quantas mensagens o usuário troca com o agente numa conversa. Cada interação é uma requisição "
-             "que reenvia o contexto inicial, então ele é cobrado (ou lido do cache) a cada interação.",
-    )
 
     with st.expander("Avançado"):
         use_local = st.toggle(
@@ -519,10 +544,14 @@ def settings_dict() -> dict:
         "idioma": lang,
         "parcela_pt": pt_share if lang == "misto" else None,
         "overhead_tokens": int(overhead),
-        "prompt_caching": cache_on,
+        "cache_implicito": cache_on,
         "taxa_acerto_cache": hit_rate if cache_on else None,
         "conversas_por_mes": int(conv_month),
-        "interacoes_por_conversa": int(turns),
+        "mensagens_usuario_por_conversa": int(turns),
+        "palavras_mensagem_usuario": list(user_words),
+        "palavras_resposta_agente": int(response_words),
+        "raciocinio_tokens_por_resposta": int(thinking_tokens),
+        "raciocinio_volta_ao_historico": thoughts_in_history,
         "paginas_pdf": pdf_pages,
         "imagens": len(images),
         "detalhe_visual": vision_detail,
@@ -533,18 +562,43 @@ def settings_dict() -> dict:
     }
 
 
-def cost_dict(c) -> dict:
+def simulate(model: dict, context_tokens: int) -> tuple[ConversationEstimate, float, str]:
+    """Simula a conversa: palavras -> tokens com o tokenizador do modelo; depois turno a turno."""
+    tpw, tpw_label = tokens_per_word(model, lang, pt_share, use_local)
+    params = ConversationParams(
+        turns=int(turns),
+        user_tokens=max(1, round(sum(user_words) / 2 * tpw)),
+        response_tokens=max(1, round(int(response_words) * tpw)),
+        thinking_tokens=int(thinking_tokens),
+        thoughts_in_history=thoughts_in_history,
+        conversations_per_month=int(conv_month),
+        cache_enabled=cache_on,
+        cache_hit_rate=hit_rate,
+    )
+    return simulate_conversation(model, context_tokens, params), tpw, tpw_label
+
+
+def conversation_dict(c: ConversationEstimate, tpw: float, tpw_label: str) -> dict:
     return {
-        "interacoes_por_conversa": c.interactions_per_conversation,
-        "tokens_contexto_por_conversa": c.tokens_per_conversation,
-        "tokens_contexto_por_mes": c.tokens_per_month,
-        "por_interacao_sem_cache": c.per_interaction_no_cache,
-        "por_conversa_sem_cache": c.per_conversation_no_cache,
-        "por_conversa_com_cache_frio": c.per_conversation_cache_cold,
-        "por_conversa_com_cache_quente": c.per_conversation_cache_warm,
-        "mensal_sem_cache": c.monthly_no_cache,
-        "mensal_com_cache": c.monthly_with_cache if c.cache_enabled else None,
-        "preco_contexto_longo": c.long_context_pricing,
+        "tokens_por_palavra": round(tpw, 3),
+        "tokens_por_palavra_metodo": tpw_label,
+        "tokens_mensagem_usuario": c.params.user_tokens,
+        "tokens_resposta_agente": c.params.response_tokens,
+        "tokens_raciocinio_por_resposta": c.params.thinking_tokens,
+        "entrada_por_conversa": c.input_total,
+        "entrada_do_cache_por_conversa": round(c.cached_total),
+        "saida_por_conversa": c.output_total,
+        "raciocinio_por_conversa": c.thinking_total,
+        "custo_entrada_por_conversa_usd": c.cost_input,
+        "custo_saida_por_conversa_usd": c.cost_output,
+        "custo_por_conversa_usd": c.cost,
+        "custo_mensal_usd": c.monthly_cost,
+        "pico_janela_pct": c.peak_window_pct,
+        "turnos": [
+            {"turno": t.turn, "entrada": t.input_tokens, "do_cache": round(t.cached_tokens),
+             "raciocinio": t.thinking_tokens, "resposta": t.response_tokens, "custo_usd": t.cost}
+            for t in c.turns
+        ],
     }
 
 
@@ -746,37 +800,75 @@ if not compare_mode:
         + "% calculado sobre a soma dos blocos."
     )
 
-    # ---- Custo
-    st.subheader("Consumo e custo do contexto inicial (entrada)")
-    cost = estimate_cost(model, est.best_total, int(conv_month), cache_on, hit_rate, int(turns))
-    t1, t2, t3 = st.columns(3)
-    t1.metric("Tokens por interação", fmt_int(est.best_total), help="O contexto inicial enviado em cada requisição.")
-    t2.metric(f"Tokens por conversa ({fmt_int(int(turns))} interações)", fmt_int(cost.tokens_per_conversation))
-    t3.metric(f"Tokens por mês ({fmt_int(int(conv_month))} conversas)", fmt_int(cost.tokens_per_month))
-    k1, k2, k3, k4 = st.columns(4)
-    k1.metric("Por conversa, sem cache", format_usd(cost.per_conversation_no_cache),
-              help=f"{format_usd(cost.per_interaction_no_cache)} por interação × {fmt_int(int(turns))}")
-    k2.metric("Por conversa, com cache", format_usd(cost.per_conversation_cache_cold),
-              help="1ª interação escreve o cache "
-                   f"({format_usd(cost.per_interaction_cache_write)}); as seguintes leem "
-                   f"({format_usd(cost.per_interaction_cache_read)} cada).")
-    k3.metric("Por conversa, cache já válido", format_usd(cost.per_conversation_cache_warm),
-              help="Quando o prefixo já está no cache (outra conversa recente): todas as interações leem.")
-    k4.metric(
-        "Mensal",
-        format_usd(cost.monthly),
-        delta=(f"-{format_usd(cost.monthly_no_cache - cost.monthly_with_cache)} com cache"
-               if cache_on and cost.monthly_no_cache > cost.monthly_with_cache else None),
-        delta_color="normal" if cache_on else "off",
-        help=f"{fmt_int(int(conv_month) * int(turns))} requisições/mês. Sem cache: {format_usd(cost.monthly_no_cache)}",
+    # ---- Simulação da conversa
+    st.subheader("Simulação da conversa: entrada e saída")
+    conv, tpw, tpw_label = simulate(model, est.best_total)
+    p = conv.params
+    st.caption(
+        f"Cada mensagem do usuário dispara uma requisição que reprocessa o **contexto inicial + todo o histórico** "
+        f"(a API não guarda estado entre chamadas; o que barateia é o cache implícito). "
+        f"Mensagem do usuário ≈ **{fmt_int(p.user_tokens)}** tokens, resposta ≈ **{fmt_int(p.response_tokens)}**, "
+        f"raciocínio = **{fmt_int(p.thinking_tokens)}** por resposta "
+        f"({str(round(tpw, 2)).replace('.', ',')} tokens/palavra medidos com {tpw_label})."
+    )
+    m1, m2, m3, m4 = st.columns(4)
+    m1.metric("Entrada por conversa", fmt_int(conv.input_total),
+              help=f"Soma da entrada dos {p.turns} turnos. Do cache: {fmt_int(round(conv.cached_total))}. "
+                   f"O contexto inicial reprocessado é {fmt_pct(conv.context_share_of_input * 100)} da entrada.")
+    m2.metric("Saída por conversa", fmt_int(conv.output_total),
+              help=f"Raciocínio {fmt_int(conv.thinking_total)} + respostas {fmt_int(conv.response_total)}.")
+    m3.metric("Custo por conversa", format_usd(conv.cost),
+              help=f"Entrada {format_usd(conv.cost_input)} + saída {format_usd(conv.cost_output)}.")
+    m4.metric(f"Mensal ({fmt_int(int(conv_month))} conversas)", format_usd(conv.monthly_cost),
+              help=f"Entrada: {fmt_int(conv.monthly_input_tokens)} tokens · "
+                   f"saída: {fmt_int(conv.monthly_output_tokens)} tokens por mês.")
+    if conv.output_price_missing:
+        st.warning("Este modelo não tem preço de saída no catálogo: o custo da saída aparece como zero.")
+    if conv.peak_window_pct >= CRIT_PCT:
+        st.error(f"No último turno a conversa ocupa {fmt_pct(conv.peak_window_pct)} da janela de contexto.")
+    elif conv.peak_window_pct >= WARN_PCT:
+        st.warning(f"No último turno a conversa ocupa {fmt_pct(conv.peak_window_pct)} da janela de contexto.")
+    if cache_on and conv.turns and conv.turns[-1].input_tokens < conv.cache_min_tokens:
+        st.info(f"As requisições ficam abaixo do mínimo de {fmt_int(conv.cache_min_tokens)} tokens do cache "
+                "implícito deste modelo: nenhuma parte é lida do cache.")
+    elif cache_on and est.best_total < conv.cache_min_tokens:
+        st.info(f"O contexto inicial ({fmt_int(est.best_total)} tokens) fica abaixo do mínimo de "
+                f"{fmt_int(conv.cache_min_tokens)} tokens do cache implícito: o cache só entra quando o histórico "
+                "faz a requisição passar desse tamanho.")
+    tdf = pd.DataFrame(
+        [
+            {
+                "Turno": t.turn,
+                "Entrada": t.input_tokens,
+                "Do cache": round(t.cached_tokens),
+                "Entrada nova": round(t.new_input_tokens),
+                "Raciocínio": t.thinking_tokens,
+                "Resposta": t.response_tokens,
+                "Custo entrada": t.cost_input,
+                "Custo saída": t.cost_output,
+                "Custo do turno": t.cost,
+                "% janela": t.window_pct,
+            }
+            for t in conv.turns
+        ]
+    )
+    st.dataframe(
+        tdf.style.format(
+            {"Custo entrada": format_usd, "Custo saída": format_usd, "Custo do turno": format_usd,
+             "% janela": fmt_pct},
+            thousands=".",
+        ),
+        hide_index=True, width="stretch",
     )
     st.caption(
-        "O contexto inicial é reenviado a cada interação; a janela de contexto o contém uma vez só. "
-        "Só a entrada do contexto inicial: não inclui as mensagens, as respostas nem o histórico que cresce "
-        f"durante a conversa. Preços de {model.get('price_checked_at', '?')} (models.json)."
-        + (" **Faixa de contexto longo aplicada.**" if cost.long_context_pricing else "")
-        + (f" Mensal com {fmt_pct(hit_rate * 100)} de acerto de cache." if cache_on
-           else " Prompt caching desligado: projeção sem cache.")
+        "Entrada do turno n = contexto inicial + mensagens e respostas anteriores"
+        + (" + raciocínios anteriores" if thoughts_in_history else "")
+        + " + nova mensagem. 'Do cache' = prefixo repetido da requisição anterior × taxa de acerto, se a "
+        f"requisição tiver ≥ {fmt_int(conv.cache_min_tokens)} tokens. Saída = raciocínio + resposta "
+        f"(o preço de saída inclui o raciocínio). Preços de {model.get('price_checked_at', '?')} (models.json)."
+        + (" **Faixa de contexto longo aplicada em algum turno.**" if any(t.long_context for t in conv.turns)
+           else "")
+        + " Fora da conta: chamadas de ferramentas (tools) e poucos tokens de formatação por mensagem."
     )
 
     # ---- Calibração
@@ -825,7 +917,7 @@ if not compare_mode:
             "pct_janela": est.window_pct,
         },
         "blocos": df.to_dict(orient="records"),
-        "custo_usd": cost_dict(cost),
+        "conversa": conversation_dict(conv, tpw, tpw_label),
         "calibracao": est.calibration,
         "avisos": ctx.warnings,
     }
@@ -866,23 +958,23 @@ else:
             for msg in vnotes:
                 st.caption(msg)
 
-    records = []
+    records, convs = [], []
     for e in ests:
-        c = estimate_cost(e.model, e.best_total, int(conv_month), cache_on, hit_rate, int(turns))
+        c, tpw, tpw_label = simulate(e.model, e.best_total)
+        convs.append((c, tpw, tpw_label))
         records.append(
             {
                 "Provedor": e.model["provider"],
                 "Modelo": e.model["label"],
                 "Método": e.best_label,
-                "Tokens (heurística)": e.heuristic_total,
-                "Tokens (melhor)": e.best_total,
+                "Contexto inicial (tokens)": e.best_total,
                 "Tokens visuais": e.visual_total,
-                "% da janela": e.window_pct,
-                "Janela": e.model["context_window"],
-                "Tokens/mês": c.tokens_per_month,
-                "Custo/conversa sem cache (US$)": c.per_conversation_no_cache,
-                "Custo/conversa com cache (US$)": c.per_conversation_cache_cold if cache_on else None,
-                "Mensal (US$)": c.monthly,
+                "% da janela (pico)": c.peak_window_pct,
+                "Entrada/conversa": c.input_total,
+                "Do cache/conversa": round(c.cached_total),
+                "Saída/conversa": c.output_total,
+                "Custo/conversa (US$)": c.cost,
+                "Mensal (US$)": c.monthly_cost,
             }
         )
     cdf = pd.DataFrame(records)
@@ -896,11 +988,10 @@ else:
 
     money = lambda v: "—" if v is None or pd.isna(v) else format_usd(v)  # noqa: E731
     st.dataframe(
-        cdf.style.map(_hl_pct, subset=["% da janela"]).format(
+        cdf.style.map(_hl_pct, subset=["% da janela (pico)"]).format(
             {
-                "% da janela": fmt_pct,
-                "Custo/conversa sem cache (US$)": money,
-                "Custo/conversa com cache (US$)": money,
+                "% da janela (pico)": fmt_pct,
+                "Custo/conversa (US$)": money,
                 "Mensal (US$)": money,
             },
             thousands=".",
@@ -909,8 +1000,10 @@ else:
     )
     st.caption(
         "Clique no cabeçalho para ordenar. 'Melhor' = API > tokenizador local exato > proxy > heurística. "
-        f"Por mês: {fmt_int(int(conv_month))} conversas × {fmt_int(int(turns))} interações"
-        + (f" e {fmt_pct(hit_rate * 100)} de acerto de cache." if cache_on else ", sem cache.")
+        f"Conversa simulada: {fmt_int(int(turns))} mensagens do usuário de {user_words[0]}–{user_words[1]} "
+        f"palavras, respostas de {fmt_int(int(response_words))} palavras e {fmt_int(int(thinking_tokens))} tokens "
+        f"de raciocínio por resposta; {fmt_int(int(conv_month))} conversas por mês"
+        + (f", cache implícito com {fmt_pct(hit_rate * 100)} de acerto." if cache_on else ", sem cache.")
         + " Preços em models.json (campo price_checked_at)."
     )
 
@@ -918,8 +1011,9 @@ else:
         "gerado_em": now,
         "configuracoes": settings_dict(),
         "modelos": [
-            {**rec, "id": e.model["id"], "soma_blocos_melhor": e.best_sum, "calibracao": e.calibration}
-            for rec, e in zip(records, ests)
+            {**rec, "id": e.model["id"], "soma_blocos_melhor": e.best_sum, "calibracao": e.calibration,
+             "conversa": conversation_dict(*cv)}
+            for rec, e, cv in zip(records, ests, convs)
         ],
         "avisos": ctx.warnings,
     }

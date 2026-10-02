@@ -3,7 +3,7 @@
     "descricao": "Catálogo de modelos da versão publicada (só Google). Edite à vontade: a UI lê tudo daqui. O catálogo com todos os provedores está em catalogo/todos_os_provedores.json.",
     "exact_method": "Método exato principal: 'tiktoken:<encoding>' | 'hf:<repo>' | 'api:anthropic' | 'api:gemini' | 'api:xai' | 'api:openai' | 'none'. Métodos 'api:*' só rodam ao clicar em 'Contar via API'.",
     "local_method": "Opcional. Tokenizador local aberto que roda automaticamente: tiktoken:<encoding>, hf:<repo> ou genai:<modelo> (LocalTokenizer oficial do google-genai, usado no Gemini 2.5). Se local_method_is_exact=false, é um PROXY (mesma família), exibido como 'aproximado'.",
-    "precos": "USD por 1M tokens. price_cache_write_per_1m = custo de escrever no cache (igual ao input quando o provedor não cobra escrita). long_context: faixa de preço acima de 'threshold' tokens de entrada.",
+    "precos": "USD por 1M tokens. price_output_per_1m inclui os tokens de raciocínio (thinking). price_cache_write_per_1m = custo de escrever no cache (igual à entrada quando o provedor não cobra escrita, como no cache implícito do Gemini). long_context: faixa de preço acima de 'threshold' tokens de entrada, válida para entrada e saída da requisição. cache_min_tokens: tamanho mínimo da requisição para o cache implícito valer.",
     "chars_per_token": "Usados só na heurística. Calibre com a seção 'Calibração' do app.",
     "vision": "Tokens visuais por fórmula do provedor. image.method: claude_patches | openai_patches | fixed | qwen_resize | upper_bound | none. pdf.method: as_image (página rasterizada no DPI suposto e cobrada como imagem) | fixed (por página) | none (provedor não lê PDF nativamente). gemini_tiles = regra do Gemini 2.x (blocos de até 768 px, 258 cada). pdf.text_billed=false: o provedor não cobra o texto nativo do PDF (Gemini)."
   },
@@ -21,8 +21,9 @@
       "price_input_per_1m": 0.75,
       "price_cache_read_per_1m": 0.075,
       "price_cache_write_per_1m": 0.75,
+      "price_output_per_1m": 3.75,
       "price_checked_at": "2026-09-30",
-      "notes": "Preço promocional até 31/12/2026 (depois: US$ 1,50 input / US$ 0,15 cache). Cache implícito sem taxa de escrita; cache explícito cobra armazenamento (US$ 0,50/1M tokens/h), não incluído. Gemma 4 como proxy local (o google-genai ainda não mapeia 3.8).",
+      "notes": "Preço promocional até 31/12/2026 (depois: US$ 1,50 entrada / US$ 0,15 cache / US$ 7,50 saída). Cache implícito sem taxa de escrita; cache explícito cobra armazenamento (US$ 0,50/1M tokens/h), não incluído. Gemma 4 como proxy local (o google-genai ainda não mapeia 3.8).",
       "sources": [
         "https://ai.google.dev/gemini-api/docs/pricing",
         "https://ai.google.dev/gemini-api/docs/models/gemini-3.8-flash"
@@ -44,7 +45,8 @@
           "https://ai.google.dev/gemini-api/docs/media-resolution",
           "https://ai.google.dev/gemini-api/docs/document-processing"
         ]
-      }
+      },
+      "cache_min_tokens": 4096
     },
     {
       "id": "gemini-3.5-flash",
@@ -59,6 +61,7 @@
       "price_input_per_1m": 1.5,
       "price_cache_read_per_1m": 0.15,
       "price_cache_write_per_1m": 1.5,
+      "price_output_per_1m": 9.0,
       "price_checked_at": "2026-09-30",
       "notes": "Texto: tokenizador do Gemma 4 (o mesmo que o LocalTokenizer oficial do google-genai usa para este modelo; contagens idênticas, carregado uma vez só). Armazenamento de cache explícito (US$ 1,00/1M tokens/h) não incluído.",
       "sources": [
@@ -82,7 +85,8 @@
           "https://ai.google.dev/gemini-api/docs/media-resolution",
           "https://ai.google.dev/gemini-api/docs/document-processing"
         ]
-      }
+      },
+      "cache_min_tokens": 4096
     },
     {
       "id": "gemini-3.5-flash-lite",
@@ -97,8 +101,9 @@
       "price_input_per_1m": 0.3,
       "price_cache_read_per_1m": 0.03,
       "price_cache_write_per_1m": 0.3,
+      "price_output_per_1m": 2.5,
       "price_checked_at": "2026-09-30",
-      "notes": "O google-genai ainda não mapeia este modelo: Gemma 4 usado como proxy. Armazenamento de cache explícito (US$ 1,00/1M tokens/h) não incluído.",
+      "notes": "O google-genai ainda não mapeia este modelo: Gemma 4 usado como proxy. Armazenamento de cache explícito (US$ 1,00/1M tokens/h) não incluído. Mínimo do cache implícito (4.096) suposto: a doc lista só Flash e Pro.",
       "sources": [
         "https://ai.google.dev/gemini-api/docs/pricing",
         "https://github.com/googleapis/python-genai/blob/main/google/genai/_local_tokenizer_loader.py"
@@ -120,7 +125,8 @@
           "https://ai.google.dev/gemini-api/docs/media-resolution",
           "https://ai.google.dev/gemini-api/docs/document-processing"
         ]
-      }
+      },
+      "cache_min_tokens": 4096
     },
     {
       "id": "gemini-3.1-pro-preview",
@@ -135,11 +141,13 @@
       "price_input_per_1m": 2.0,
       "price_cache_read_per_1m": 0.2,
       "price_cache_write_per_1m": 2.0,
+      "price_output_per_1m": 12.0,
       "long_context": {
         "threshold": 200000,
         "price_input_per_1m": 4.0,
         "price_cache_read_per_1m": 0.4,
-        "price_cache_write_per_1m": 4.0
+        "price_cache_write_per_1m": 4.0,
+        "price_output_per_1m": 18.0
       },
       "price_checked_at": "2026-09-30",
       "notes": "Texto: tokenizador do Gemma 4 (o mesmo que o LocalTokenizer oficial do google-genai usa para este modelo; contagens idênticas, carregado uma vez só). Armazenamento de cache explícito (US$ 4,50/1M tokens/h) não incluído.",
@@ -164,7 +172,8 @@
           "https://ai.google.dev/gemini-api/docs/media-resolution",
           "https://ai.google.dev/gemini-api/docs/document-processing"
         ]
-      }
+      },
+      "cache_min_tokens": 4096
     },
     {
       "id": "gemini-3.1-flash-lite",
@@ -179,8 +188,9 @@
       "price_input_per_1m": 0.25,
       "price_cache_read_per_1m": 0.025,
       "price_cache_write_per_1m": 0.25,
+      "price_output_per_1m": 1.5,
       "price_checked_at": "2026-09-30",
-      "notes": "Texto: tokenizador do Gemma 4 (o mesmo que o LocalTokenizer oficial do google-genai usa para este modelo; contagens idênticas, carregado uma vez só). Armazenamento de cache explícito (US$ 1,00/1M tokens/h) não incluído.",
+      "notes": "Texto: tokenizador do Gemma 4 (o mesmo que o LocalTokenizer oficial do google-genai usa para este modelo; contagens idênticas, carregado uma vez só). Armazenamento de cache explícito (US$ 1,00/1M tokens/h) não incluído. Mínimo do cache implícito (4.096) suposto: a doc lista só Flash e Pro.",
       "sources": [
         "https://ai.google.dev/gemini-api/docs/pricing",
         "https://ai.google.dev/gemini-api/docs/models/gemini-3.1-flash-lite"
@@ -202,7 +212,8 @@
           "https://ai.google.dev/gemini-api/docs/media-resolution",
           "https://ai.google.dev/gemini-api/docs/document-processing"
         ]
-      }
+      },
+      "cache_min_tokens": 4096
     },
     {
       "id": "gemini-2.5-pro",
@@ -217,11 +228,13 @@
       "price_input_per_1m": 1.25,
       "price_cache_read_per_1m": 0.125,
       "price_cache_write_per_1m": 1.25,
+      "price_output_per_1m": 10.0,
       "long_context": {
         "threshold": 200000,
         "price_input_per_1m": 2.5,
         "price_cache_read_per_1m": 0.25,
-        "price_cache_write_per_1m": 2.5
+        "price_cache_write_per_1m": 2.5,
+        "price_output_per_1m": 15.0
       },
       "price_checked_at": "2026-09-30",
       "notes": "Acesso limitado a quem já usava a família 2.5. Texto: LocalTokenizer oficial do google-genai (Gemma 3, SentencePiece). Armazenamento de cache explícito (US$ 4,50/1M tokens/h) não incluído.",
@@ -244,7 +257,8 @@
           "https://ai.google.dev/gemini-api/docs/image-understanding",
           "https://ai.google.dev/gemini-api/docs/document-processing"
         ]
-      }
+      },
+      "cache_min_tokens": 2048
     },
     {
       "id": "gemini-2.5-flash",
@@ -259,6 +273,7 @@
       "price_input_per_1m": 0.3,
       "price_cache_read_per_1m": 0.03,
       "price_cache_write_per_1m": 0.3,
+      "price_output_per_1m": 2.5,
       "price_checked_at": "2026-09-30",
       "notes": "Acesso limitado a quem já usava a família 2.5. Texto: LocalTokenizer oficial do google-genai (Gemma 3, SentencePiece). Armazenamento de cache explícito (US$ 1,00/1M tokens/h) não incluído.",
       "sources": [
@@ -280,7 +295,8 @@
           "https://ai.google.dev/gemini-api/docs/image-understanding",
           "https://ai.google.dev/gemini-api/docs/document-processing"
         ]
-      }
+      },
+      "cache_min_tokens": 2048
     }
   ]
 }

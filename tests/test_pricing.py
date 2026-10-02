@@ -1,7 +1,7 @@
 import pytest
 
 from core.counters import parse_method
-from core.pricing import MODELS_PATH, ROOT, estimate_cost, format_usd, load_models, prices_for
+from core.pricing import MODELS_PATH, ROOT, format_usd, load_models, prices_for
 
 MODEL = {
     "price_input_per_1m": 2.0, "price_cache_read_per_1m": 0.2, "price_cache_write_per_1m": 2.5,
@@ -11,53 +11,16 @@ MODEL = {
 FULL_CATALOG = ROOT / "catalogo" / "todos_os_provedores.json"
 
 
-def test_custo_sem_cache():
-    c = estimate_cost(MODEL, 100_000, 10, cache_enabled=False)
-    assert c.per_conversation_no_cache == pytest.approx(0.2)
-    assert c.monthly == pytest.approx(2.0)
-
-
-def test_custo_com_cache_primeira_escrita_depois_leituras():
-    c = estimate_cost(MODEL, 100_000, 10, cache_enabled=True, cache_hit_rate=1.0)
-    assert c.per_interaction_cache_write == pytest.approx(0.25)
-    assert c.per_interaction_cache_read == pytest.approx(0.02)
-    assert c.monthly == pytest.approx(0.25 + 9 * 0.02)
-
-
-def test_taxa_de_acerto_parcial():
-    c = estimate_cost(MODEL, 1_000_000, 11, cache_enabled=True, cache_hit_rate=0.5)
-    # 1ª escrita + 10 restantes (5 leituras, 5 escritas)  -> faixa longa (> 200k)
-    assert c.long_context_pricing
-    assert c.monthly == pytest.approx(6 * 5.0 + 5 * 0.4)
-
-
-def test_interacoes_por_conversa_multiplicam_o_contexto():
-    # 100k tokens, 10 conversas x 4 interações = 40 requisições
-    c = estimate_cost(MODEL, 100_000, 10, cache_enabled=False, interactions_per_conversation=4)
-    assert c.tokens_per_conversation == 400_000
-    assert c.tokens_per_month == 4_000_000
-    assert c.per_interaction_no_cache == pytest.approx(0.2)
-    assert c.per_conversation_no_cache == pytest.approx(0.8)
-    assert c.monthly == pytest.approx(8.0)
-
-
-def test_interacoes_com_cache():
-    c = estimate_cost(MODEL, 100_000, 10, cache_enabled=True, cache_hit_rate=1.0,
-                      interactions_per_conversation=4)
-    assert c.per_conversation_cache_cold == pytest.approx(0.25 + 3 * 0.02)   # escreve 1x, lê 3x
-    assert c.per_conversation_cache_warm == pytest.approx(4 * 0.02)
-    assert c.monthly == pytest.approx(0.25 + 39 * 0.02)                      # 40 requisições no mês
-    assert c.per_conversation == c.per_conversation_cache_cold
-
-
-def test_interacoes_minimo_um():
-    c = estimate_cost(MODEL, 100_000, 10, cache_enabled=False, interactions_per_conversation=0)
-    assert c.interactions_per_conversation == 1
-
-
 def test_faixa_de_contexto_longo():
     assert prices_for(MODEL, 200_000).input == 2.0
     assert prices_for(MODEL, 200_001).input == 4.0
+
+
+def test_todos_os_modelos_tem_preco_de_saida():
+    for m in load_models(FULL_CATALOG):
+        assert m["price_output_per_1m"] and m["price_output_per_1m"] > m["price_input_per_1m"], m["id"]
+    for m in load_models(MODELS_PATH):
+        assert m["cache_min_tokens"] in (2048, 4096), m["id"]
 
 
 def test_format_usd():

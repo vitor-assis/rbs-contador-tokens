@@ -94,22 +94,44 @@ O Gemma 4 é carregado **uma única vez** pela biblioteca `tokenizers`, leve, e 
 todos os Gemini 3.x. Pelo `LocalTokenizer`, cada modelo carregaria a própria cópia via
 `transformers`, cerca de 230 MB cada.
 
-## Consumo e custo
+## Simulação da conversa (entrada e saída)
 
-Cada **interação** de uma conversa é uma requisição que **reenvia o contexto inicial**. Por isso
-a barra lateral tem **Conversas por mês** e **Interações por conversa**:
+**A API não guarda estado entre chamadas.** A cada mensagem do usuário, o modelo processa de novo,
+e cobra como entrada, o **contexto inicial + todo o histórico** até ali. Mesmo na Interactions API
+do Gemini (`previous_interaction_id`), o histórico continua sendo processado: a doc diz que o modo
+com estado facilita o uso do cache implícito para ele, o que reduz o custo, mas não o elimina. O
+que barateia é o **cache implícito**, ativo por padrão do Gemini 2.5 em diante: a parte repetida da
+requisição anterior é cobrada pelo preço de cache, cerca de 10% da entrada.
 
-- tokens por conversa = contexto inicial × interações;
-- tokens por mês = × conversas;
-- sem cache: cada interação paga o preço de entrada;
-- com cache: a 1ª interação escreve o cache e as seguintes leem. "Cache já válido" é quando outra
-  conversa recente já deixou o prefixo no cache;
-- mensal: `conversas × interações` requisições, divididas entre leituras e escritas pela **taxa
-  de acerto do cache**. A 1ª requisição do mês é sempre escrita.
+Parâmetros na barra lateral (seção "Conversa"):
 
-A janela de contexto contém o contexto inicial uma vez só (a % da janela não muda com as
-interações). Fica fora da conta: as mensagens, as respostas e o histórico que cresce na conversa.
-Também fica fora o armazenamento por hora do cache explícito do Gemini.
+| Parâmetro | Padrão | Observação |
+|---|---|---|
+| Conversas por mês | 1.000 | |
+| Mensagens do usuário por conversa | 5 | 1 turno = mensagem do usuário → raciocínio → resposta. 10 mensagens no total = 5 turnos |
+| Palavras por mensagem do usuário | 5–15 | usa a média; só texto |
+| Palavras por resposta do agente | 80 | |
+| Raciocínio por resposta (tokens) | 500 | **maior incerteza**: meça os tokens de raciocínio no uso real |
+| Raciocínio anterior volta como entrada | desligado | pior caso |
+| Cache implícito / taxa de acerto | ligado / 95% | |
+
+Palavras viram tokens com a proporção **tokens/palavra medida com o tokenizador do próprio modelo**
+num texto de amostra de atendimento (PT, EN ou misto), e não com um chute fixo.
+
+Turno *n*:
+
+- **entrada** = contexto inicial + (mensagens + respostas anteriores) + nova mensagem;
+- **do cache** = entrada da requisição anterior (no 1º turno, o contexto inicial) × taxa de acerto,
+  se a requisição tiver pelo menos o mínimo do cache implícito: **4.096 tokens no Gemini 3.x e
+  2.048 no 2.5**. Abaixo disso, nada vem do cache;
+- **saída** = raciocínio + resposta, ao preço de saída. A doc diz que o preço de saída inclui o
+  raciocínio;
+- a faixa de contexto longo (> 200 mil tokens no 3.1 Pro e no 2.5 Pro) vale para a entrada e a saída
+  da requisição.
+
+O app mostra a tabela turno a turno, os totais por conversa e por mês, e a % da janela no último
+turno, quando a conversa está maior. Ficam fora da conta: chamadas de ferramentas (tools), poucos
+tokens de formatação por mensagem e o armazenamento por hora do cache explícito.
 
 ## Conteúdo visual (imagens e páginas de PDF)
 
@@ -141,15 +163,17 @@ Escolha "Comparar modelos…" e selecione na barra lateral quais modelos entram.
 Nada é hardcoded na UI: modelos, janelas, preços e métodos vêm do `models.json`. Os dados foram
 conferidos na documentação oficial em **30/09/2026** (campo `price_checked_at`).
 
-| Modelo | Entrada (US$/1M) | Cache leitura | Janela |
-|---|---|---|---|
-| Gemini 3.8 Flash | 0,75 (promocional até 31/12/2026; depois 1,50) | 0,075 | 1.048.576 |
-| Gemini 3.5 Flash | 1,50 | 0,15 | 1.048.576 |
-| Gemini 3.5 Flash-Lite | 0,30 | 0,03 | 1.048.576 |
-| Gemini 3.1 Pro (preview) | 2,00 (> 200k: 4,00) | 0,20 (> 200k: 0,40) | 1.048.576 |
-| Gemini 3.1 Flash-Lite | 0,25 | 0,025 | 1.048.576 |
-| Gemini 2.5 Pro | 1,25 (> 200k: 2,50) | 0,125 (> 200k: 0,25) | 1.048.576 |
-| Gemini 2.5 Flash | 0,30 | 0,03 | 1.048.576 |
+| Modelo | Entrada (US$/1M) | Cache leitura | Saída (inclui raciocínio) | Mín. cache implícito |
+|---|---|---|---|---|
+| Gemini 3.8 Flash | 0,75 (promocional até 31/12/2026; depois 1,50) | 0,075 | 3,75 (depois 7,50) | 4.096 |
+| Gemini 3.5 Flash | 1,50 | 0,15 | 9,00 | 4.096 |
+| Gemini 3.5 Flash-Lite | 0,30 | 0,03 | 2,50 | 4.096 (suposto) |
+| Gemini 3.1 Pro (preview) | 2,00 (> 200k: 4,00) | 0,20 (> 200k: 0,40) | 12,00 (> 200k: 18,00) | 4.096 |
+| Gemini 3.1 Flash-Lite | 0,25 | 0,025 | 1,50 | 4.096 (suposto) |
+| Gemini 2.5 Pro | 1,25 (> 200k: 2,50) | 0,125 (> 200k: 0,25) | 10,00 (> 200k: 15,00) | 2.048 |
+| Gemini 2.5 Flash | 0,30 | 0,03 | 2,50 | 2.048 |
+
+Janela de 1.048.576 tokens em todos. Preços de 01/10/2026.
 
 A família 2.5 tem acesso limitado a quem já a usava (o Google recomenda 3.5 Flash-Lite ou
 3.8 Flash para projetos novos). Para **adicionar um modelo**, inclua um objeto no `models.json`.
@@ -185,5 +209,7 @@ tests/                           testes unitários
 ## Limitações conhecidas
 
 - Gemini 3.8 Flash e 3.5 Flash-Lite usam o tokenizador do Gemma 4 como **proxy**.
+- O raciocínio por resposta é um parâmetro, não uma medição: varia com a tarefa e o nível de
+  raciocínio do modelo, e costuma ser a maior parte do custo da conversa.
 - Tokens visuais são estimativas por fórmula. No Gemini 2.5, a não cobrança do texto do PDF e o
   piso de 256 px por bloco de imagem são supostos (a doc só os afirma para o Gemini 3).
