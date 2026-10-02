@@ -105,14 +105,6 @@ class ConversationEstimate:
         return self.output_total * max(0, self.params.conversations_per_month)
 
     @property
-    def monthly_cached_tokens(self) -> int:
-        return round(self.cached_total * max(0, self.params.conversations_per_month))
-
-    @property
-    def monthly_total_tokens(self) -> int:
-        return self.monthly_input_tokens + self.monthly_output_tokens
-
-    @property
     def peak_window_pct(self) -> float:
         return max((t.window_pct for t in self.turns), default=0.0)
 

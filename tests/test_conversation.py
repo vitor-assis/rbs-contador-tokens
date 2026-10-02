@@ -91,11 +91,3 @@ def test_tokens_por_palavra_com_tokenizador_do_gemini():
     if label == "heurística":
         pytest.skip("tokenizador indisponível")
     assert "exato" in label and 1.0 < tpw < 2.5
-
-
-def test_totais_mensais_multiplicam_pelas_conversas():
-    c = simulate_conversation(MODEL, 1000, ConversationParams(**BASE))   # 1.000 conversas/mês
-    assert c.monthly_input_tokens == 3360 * 1000
-    assert c.monthly_cached_tokens == 3130 * 1000
-    assert c.monthly_output_tokens == 450 * 1000
-    assert c.monthly_total_tokens == (3360 + 450) * 1000
